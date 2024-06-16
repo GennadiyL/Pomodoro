@@ -10,10 +10,11 @@ namespace Pomodoro
 {
     public class TrayIcon : ApplicationContext
     {
-        private const int RefreshInterval = 10000;
+        private const int RefreshInterval = 1000;
 
         private readonly NotifyIcon _trayIcon;
         private readonly Timer _refreshTimer;
+        private ToolStripLabel _timeLabel;
 
         public TrayIcon()
         {
@@ -22,14 +23,22 @@ namespace Pomodoro
             ToolStripMenuItem closeMenuItem = new ToolStripMenuItem { Text = @"Close App" };
             closeMenuItem.Click += this.CloseMenuItemClickHandler;
 
+            _timeLabel = new ToolStripLabel(DateTime.Now.ToString("HH:mm:ss"));
+            _timeLabel.Font = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Bold);
+            _timeLabel.LinkColor = Color.Red;
+
             _trayIcon = new NotifyIcon();
             _trayIcon.BalloonTipIcon = ToolTipIcon.Info;
             _trayIcon.BalloonTipText = @"GLSoft Pomodoro";
             _trayIcon.BalloonTipTitle = @"Pomodoro";
             _trayIcon.Text = @"Pomodoro";
             _trayIcon.Icon = Resources.Pomodoro;
-            _trayIcon.ContextMenuStrip = new ContextMenuStrip();
-            _trayIcon.ContextMenuStrip.Items.Add(closeMenuItem);
+
+            ContextMenuStrip contextMenuStrip = new ContextMenuStrip();
+            contextMenuStrip.Items.Add(_timeLabel);
+            contextMenuStrip.Items.Add(closeMenuItem);
+
+            _trayIcon.ContextMenuStrip = contextMenuStrip;
             _trayIcon.Visible = true;
 
             _refreshTimer = new Timer { Interval = RefreshInterval, Enabled = true };
@@ -52,6 +61,10 @@ namespace Pomodoro
 
         private void RefreshTimerTickHandler(object sender, EventArgs e)
         {
+            if (_timeLabel != null && _timeLabel.Visible)
+            {
+                _timeLabel.Text = DateTime.Now.ToString("HH:mm:ss");
+            }
         }
     }
 }
