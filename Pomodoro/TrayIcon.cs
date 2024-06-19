@@ -1,41 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Resources;
-using System.Text;
-using System.Threading.Tasks;
-using Timer = System.Windows.Forms.Timer;
+﻿using Timer = System.Windows.Forms.Timer;
 
 namespace Pomodoro
 {
     public class TrayIcon : ApplicationContext
     {
-        private const int RefreshInterval = 1000;
+        private const int RefreshInterval = 250;
+
+        private bool isNormal = true;
 
         private readonly NotifyIcon _trayIcon;
         private readonly Timer _refreshTimer;
-        private ToolStripLabel _timeLabel;
+        private readonly ToolStripLabel _timeLabelMenuItem;
 
         public TrayIcon()
         {
             Application.ApplicationExit += ApplicationExitHandler;
 
-            ToolStripMenuItem closeMenuItem = new ToolStripMenuItem { Text = @"Close App" };
+            _trayIcon = new NotifyIcon
+            {
+                BalloonTipIcon = ToolTipIcon.Info,
+                BalloonTipText = @"GLSoft Pomodoro",
+                BalloonTipTitle = @"Pomodoro",
+                Text = @"Pomodoro",
+                Icon = Resources.Number00
+            };
+
+            ToolStripMenuItem closeMenuItem = new ToolStripMenuItem
+            {
+                Text = @"Close Pomodoro", 
+            };
             closeMenuItem.Click += this.CloseMenuItemClickHandler;
 
-            _timeLabel = new ToolStripLabel(DateTime.Now.ToString("HH:mm:ss"));
-            _timeLabel.Font = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Bold);
-            _timeLabel.LinkColor = Color.Red;
+            _timeLabelMenuItem = new ToolStripLabel(DateTime.Now.ToString("HH:mm:ss"))
+            {
+                Text = DateTime.Now.ToString("HH:mm:ss"),
+                Font = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = Color.DarkRed,
+                BackColor = Color.DarkGray
+            };
 
-            _trayIcon = new NotifyIcon();
-            _trayIcon.BalloonTipIcon = ToolTipIcon.Info;
-            _trayIcon.BalloonTipText = @"GLSoft Pomodoro";
-            _trayIcon.BalloonTipTitle = @"Pomodoro";
-            _trayIcon.Text = @"Pomodoro";
-            _trayIcon.Icon = Resources.Pomodoro;
-
-            ContextMenuStrip contextMenuStrip = new ContextMenuStrip();
-            contextMenuStrip.Items.Add(_timeLabel);
+            ContextMenuStrip contextMenuStrip = new ContextMenuStrip
+            {
+                Font = new Font(FontFamily.GenericSansSerif, 9, FontStyle.Regular),
+                AutoSize = true
+            };
+            contextMenuStrip.Items.Add(_timeLabelMenuItem);
+            contextMenuStrip.Items.Add("-");
             contextMenuStrip.Items.Add(closeMenuItem);
 
             _trayIcon.ContextMenuStrip = contextMenuStrip;
@@ -61,9 +72,20 @@ namespace Pomodoro
 
         private void RefreshTimerTickHandler(object sender, EventArgs e)
         {
-            if (_timeLabel != null && _timeLabel.Visible)
+            if (isNormal)
             {
-                _timeLabel.Text = DateTime.Now.ToString("HH:mm:ss");
+                _trayIcon.Icon = Resources.Number00;
+            }
+            else
+            {
+                _trayIcon.Icon = Resources.Number00blink;
+            }
+
+            isNormal = !isNormal;
+
+            if (_timeLabelMenuItem != null && _timeLabelMenuItem.Visible)
+            {
+                _timeLabelMenuItem.Text = DateTime.Now.ToString("HH:mm:ss");
             }
         }
     }
