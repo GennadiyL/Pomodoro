@@ -6,7 +6,8 @@ namespace Pomodoro
     {
         private const int RefreshInterval = 250;
 
-        private bool isNormal = true;
+        private bool _isNormal = true;
+        private DateTime? _startTime = default;
 
         private readonly NotifyIcon _trayIcon;
         private readonly Timer _refreshTimer;
@@ -25,20 +26,37 @@ namespace Pomodoro
                 Icon = Resources.Number00
             };
 
-            ToolStripMenuItem closeMenuItem = new ToolStripMenuItem
-            {
-                Text = @"Close Pomodoro", 
-            };
-            closeMenuItem.Click += this.CloseMenuItemClickHandler;
-
             _timeLabelMenuItem = new ToolStripLabel(DateTime.Now.ToString("HH:mm:ss"))
             {
                 Text = DateTime.Now.ToString("HH:mm:ss"),
-                Font = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Bold),
+                Font = new Font(FontFamily.GenericSansSerif, 11, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter,
                 ForeColor = Color.DarkRed,
                 BackColor = Color.DarkGray
             };
+
+            ToolStripSeparator separator1 = new ToolStripSeparator();
+
+            ToolStripMenuItem startMenuItem = new ToolStripMenuItem
+            {
+                Text = _startTime.HasValue ? @"Restart" : @"New"
+            };
+            startMenuItem.Click += StartMenuItemClickHandler;
+
+            ToolStripMenuItem stopMenuItem = new ToolStripMenuItem
+            {
+                Text = @"Stop"
+            };
+            stopMenuItem.Click += StopMenuItemClickHandler;
+
+            ToolStripSeparator separator2 = new ToolStripSeparator();
+
+            ToolStripMenuItem closeMenuItem = new ToolStripMenuItem
+            {
+                Text = @"Close",
+            };
+            closeMenuItem.Click += CloseMenuItemClickHandler;
+
 
             ContextMenuStrip contextMenuStrip = new ContextMenuStrip
             {
@@ -46,7 +64,10 @@ namespace Pomodoro
                 AutoSize = true
             };
             contextMenuStrip.Items.Add(_timeLabelMenuItem);
-            contextMenuStrip.Items.Add("-");
+            contextMenuStrip.Items.Add(separator1);
+            contextMenuStrip.Items.Add(startMenuItem);
+            contextMenuStrip.Items.Add(stopMenuItem);
+            contextMenuStrip.Items.Add(separator2);
             contextMenuStrip.Items.Add(closeMenuItem);
 
             _trayIcon.ContextMenuStrip = contextMenuStrip;
@@ -65,6 +86,16 @@ namespace Pomodoro
             _refreshTimer.Dispose();
         }
 
+        private void StartMenuItemClickHandler(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void StopMenuItemClickHandler(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
         private void CloseMenuItemClickHandler(object sender, EventArgs e)
         {
             Application.Exit();
@@ -72,7 +103,7 @@ namespace Pomodoro
 
         private void RefreshTimerTickHandler(object sender, EventArgs e)
         {
-            if (isNormal)
+            if (_isNormal)
             {
                 _trayIcon.Icon = Resources.Number00;
             }
@@ -81,7 +112,7 @@ namespace Pomodoro
                 _trayIcon.Icon = Resources.Number00blink;
             }
 
-            isNormal = !isNormal;
+            _isNormal = !_isNormal;
 
             if (_timeLabelMenuItem != null && _timeLabelMenuItem.Visible)
             {
