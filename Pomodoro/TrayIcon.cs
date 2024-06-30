@@ -1,13 +1,16 @@
-﻿using Timer = System.Windows.Forms.Timer;
+﻿using System.Configuration;
+using Timer = System.Windows.Forms.Timer;
 
 namespace Pomodoro
 {
     public class TrayIcon : ApplicationContext
     {
         private const int RefreshInterval = 250;
+        private const int DefaultDuration = 25;
 
         private bool _isNormal = true;
         private DateTime? _startTime = default;
+        private int _duration = 25;
 
         private readonly NotifyIcon _trayIcon;
         private readonly Timer _refreshTimer;
@@ -17,14 +20,21 @@ namespace Pomodoro
         {
             Application.ApplicationExit += ApplicationExitHandler;
 
-            _trayIcon = new NotifyIcon
+            try
             {
-                BalloonTipIcon = ToolTipIcon.Info,
-                BalloonTipText = @"GLSoft Pomodoro",
-                BalloonTipTitle = @"Pomodoro",
-                Text = @"Pomodoro",
-                Icon = Resources.Number00
-            };
+                string durationString = ConfigurationManager.AppSettings["duration"];
+                _duration = int.Parse(durationString!);
+                if (_duration < 5 || _duration > 180)
+                {
+                    throw new ArgumentException("Duration should be 5...180 minutes.");
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Configuration error. Set duration to 25 minutes", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _duration = 25;
+            }
 
             _timeLabelMenuItem = new ToolStripLabel(DateTime.Now.ToString("HH:mm:ss"))
             {
@@ -57,7 +67,6 @@ namespace Pomodoro
             };
             closeMenuItem.Click += CloseMenuItemClickHandler;
 
-
             ContextMenuStrip contextMenuStrip = new ContextMenuStrip
             {
                 Font = new Font(FontFamily.GenericSansSerif, 9, FontStyle.Regular),
@@ -70,8 +79,16 @@ namespace Pomodoro
             contextMenuStrip.Items.Add(separator2);
             contextMenuStrip.Items.Add(closeMenuItem);
 
-            _trayIcon.ContextMenuStrip = contextMenuStrip;
-            _trayIcon.Visible = true;
+            _trayIcon = new NotifyIcon
+            {
+                BalloonTipIcon = ToolTipIcon.Info,
+                BalloonTipText = @"GLSoft Pomodoro",
+                BalloonTipTitle = @"Pomodoro",
+                Text = @"Pomodoro",
+                Icon = Resources.Number00,
+                ContextMenuStrip = contextMenuStrip,
+                Visible = true
+            };
 
             _refreshTimer = new Timer { Interval = RefreshInterval, Enabled = true };
             _refreshTimer.Tick += RefreshTimerTickHandler;
