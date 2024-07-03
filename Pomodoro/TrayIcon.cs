@@ -8,15 +8,17 @@ namespace Pomodoro
     public class TrayIcon : ApplicationContext
     {
         private const int RefreshInterval = 250;
-        private const int FinishedDuration = 10;
+        private const int FinishedStateDuration = 10;
         private const int DefaultDuration = 25;
         private const int MinMinutes = 5;
         private const int MaxMinutes = 90;
 
         private AppState _appState = AppState.Idle;
-        private DateTime? _startTime;
-        private int? _passedSeconds;
-        private bool _isBlinked;
+        private AppState _previousAppState = AppState.None;
+
+        private DateTime _startTime = DateTime.MinValue;
+        private int _passedSeconds = -1;
+        private bool _isIconNegative = false;
 
         private readonly int _duration = DefaultDuration;
 
@@ -130,40 +132,35 @@ namespace Pomodoro
 
         private void StartMenuItemClickHandler(object sender, EventArgs e)
         {
-            if (_appState == AppState.Idle)
+            switch (_appState)
             {
-                _appState = AppState.Started;
-                _startTime = DateTime.Now;
-                _passedSeconds = default;
-                _isBlinked = false;
-                return;
+                case AppState.Idle:
+                    _appState = AppState.Started;
+                    _startTime = DateTime.Now;
+                    _passedSeconds = -1;
+                    _isIconNegative = false;
+                    return;
+                case AppState.Started:
+                    _appState = AppState.Postponed;
+                    _passedSeconds = (int)(DateTime.Now - _startTime).TotalSeconds;
+                    _startTime = DateTime.MinValue;
+                    _isIconNegative = false;
+                    return;
+                case AppState.Postponed:
+                    _appState = AppState.Started;
+                    _startTime = DateTime.Now.AddSeconds(-_passedSeconds);
+                    _passedSeconds = -1;
+                    _isIconNegative = false;
+                    return;
+                case AppState.Finished:
+                    _appState = AppState.Started;
+                    _startTime = DateTime.Now;
+                    _passedSeconds = -1;
+                    _isIconNegative = false;
+                    return;
+                default:
+                    throw new InvalidOperationException("Invalid Application state");
             }
-            if (_appState == AppState.Started)
-            {
-                _appState = AppState.Postponed;
-                _passedSeconds = (int)(DateTime.Now - _startTime!.Value).TotalSeconds;
-                _startTime = default;
-                _isBlinked = false;
-                return;
-            }
-            if (_appState == AppState.Postponed)
-            {
-                _appState = AppState.Started;
-                _startTime = DateTime.Now.AddSeconds(-_passedSeconds!.Value);
-                _passedSeconds = default;
-                _isBlinked = false;
-                return;
-            }
-            if(_appState == AppState.Finished)
-            {
-                _appState = AppState.Started;
-                _startTime = DateTime.Now;
-                _passedSeconds = default;
-                _isBlinked = false;
-                return;
-            }
-
-            throw new InvalidOperationException("Invalid Application state");
         }
 
         private void StopMenuItemClickHandler(object sender, EventArgs e)
@@ -171,9 +168,9 @@ namespace Pomodoro
             if (_appState == AppState.Started || _appState == AppState.Postponed || _appState == AppState.Finished)
             {
                 _appState = AppState.Idle;
-                _passedSeconds = 0;
+                _passedSeconds = -1;
                 _startTime = DateTime.MinValue;
-                _isBlinked = false;
+                _isIconNegative = false;
             }
             else
             {
@@ -190,74 +187,125 @@ namespace Pomodoro
         {
             if (_appState == AppState.Idle)
             {
+                HandleIdleState();
+                return;
+            }
+            if (_appState == AppState.Started)
+            {
+                HandleStartedState();
+                return;
+            }
+            if (_appState == AppState.Postponed)
+            {
+                HandlePostponedState();
+                return;
+            }
+            if (_appState == AppState.Finished)
+            {
+                HandleFinishedState();
+                return;
+            }
+            throw new InvalidOperationException("Invalid Application state");
+        }
+
+
+        private void HandleIdleState()
+        {
+            if (_previousAppState != AppState.Idle)
+            {
                 _timeLabelMenuItem.Text = @"------";
                 _trayIcon.Icon = Resources.Pomodoro;
                 _startMenuItem.Text = $@"Start ({_duration})";
                 _startMenuItem.Enabled = true;
                 _stopMenuItem.Text = @"Stop";
                 _stopMenuItem.Enabled = false;
-                return;
-            }
-            if (_appState == AppState.Started)
-            {
-                int passedSeconds = (int)(DateTime.Now - _startTime!.Value).TotalSeconds;
-                int remainsSeconds = _duration * 60 - passedSeconds;
-                int minutes = remainsSeconds / 60;
-                int seconds = remainsSeconds % 60;
-                int visibleMinutes = seconds == 0 ? minutes : minutes + 1;
 
-                _timeLabelMenuItem.Text = $@"{minutes:D2}:{seconds:D2}";
-                _trayIcon.Icon = _icons[visibleMinutes];
+                _previousAppState = AppState.Idle;
+            }
+        }
+
+        private void HandleStartedState()
+        {
+            if (_previousAppState != AppState.Started)
+            {
                 _startMenuItem.Text = $@"Pause";
                 _startMenuItem.Enabled = true;
                 _stopMenuItem.Text = @"Stop";
                 _stopMenuItem.Enabled = true;
-                if (remainsSeconds <= 0)
+
+                _previousAppState = AppState.Started;
+            }
+
+            int passedSeconds = (int)(DateTime.Now - _startTime).TotalSeconds;
+            if (passedSeconds != _passedSeconds)
+            {
+                int currentRemainsSeconds = _duration * 60 - passedSeconds;
+                int previousRemainsSeconds = _duration * 60 - _passedSeconds;
+
+                int currentRoundedMinutes = (currentRemainsSeconds + 59) / 60;
+                int previousRoundedMinutes = (previousRemainsSeconds + 59) / 60;
+
+                _timeLabelMenuItem.Text = $@"{currentRemainsSeconds / 60:D2}:{currentRemainsSeconds % 60:D2}";
+
+                if (currentRoundedMinutes != previousRoundedMinutes)
+                {
+                    _trayIcon.Icon = _icons[currentRoundedMinutes];
+                }
+
+                _passedSeconds = passedSeconds;
+
+                if (currentRemainsSeconds <= 0)
                 {
                     _appState = AppState.Finished;
                     _startTime = DateTime.Now;
-                    _passedSeconds = default;
+                    _passedSeconds = -1;
+                    _isIconNegative = false;
                 }
-                return;
             }
-            if (_appState == AppState.Postponed)
-            {
-                int passedSeconds = _passedSeconds!.Value;
-                int remainsSeconds = _duration * 60 - passedSeconds;
-                int minutes = remainsSeconds / 60;
-                int seconds = remainsSeconds % 60;
-                int visibleMinutes = seconds == 0 ? minutes : minutes + 1;
+        }
 
-                _timeLabelMenuItem.Text = $@"{minutes:D2}:{seconds:D2}";
-                _trayIcon.Icon = _icons[visibleMinutes];
-                _startMenuItem.Text = $@"Continue ({visibleMinutes})";
+        private void HandlePostponedState()
+        {
+            if (_previousAppState != AppState.Postponed)
+            {
+                int remainsSeconds = _duration * 60 - _passedSeconds;
+                int roundedMinutes = (remainsSeconds + 59) / 60;
+
+                _timeLabelMenuItem.Text = $@"{remainsSeconds / 60:D2}:{remainsSeconds % 60:D2}";
+                _trayIcon.Icon = _icons[roundedMinutes];
+                _startMenuItem.Text = $@"Continue ({roundedMinutes})";
                 _startMenuItem.Enabled = true;
                 _stopMenuItem.Text = @"Stop";
                 _stopMenuItem.Enabled = true;
-                return;
-            }
-            if (_appState == AppState.Finished)
-            {
-                int passedBlinkSeconds = (int)(DateTime.Now - _startTime!.Value).TotalSeconds;
-                _isBlinked = !_isBlinked;
 
+                _previousAppState = AppState.Postponed;
+            }
+        }
+
+        private void HandleFinishedState()
+        {
+            if (_previousAppState != AppState.Finished)
+            {
                 _timeLabelMenuItem.Text = $@"Finished";
-                _trayIcon.Icon = _isBlinked ? Resources.Number00blink : Resources.Number00;
                 _startMenuItem.Text = $@"Start ({_duration})";
                 _startMenuItem.Enabled = true;
                 _stopMenuItem.Text = @"Stop";
                 _stopMenuItem.Enabled = true;
-                
-                if (passedBlinkSeconds >= FinishedDuration)
-                {
-                    _appState = AppState.Idle;
-                    _startTime = DateTime.MinValue;
-                    _passedSeconds = 0;
-                    _isBlinked = false;
-                }
-                return;
+
+                _previousAppState = AppState.Finished;
             }
-            throw new InvalidOperationException("Invalid Application state");
+
+            _isIconNegative = !_isIconNegative;
+            _trayIcon.Icon = _isIconNegative ? Resources.Number00blink : Resources.Number00;
+
+            int passedBlinkSeconds = (int)(DateTime.Now - _startTime).TotalSeconds;
+            if (passedBlinkSeconds >= FinishedStateDuration)
+            {
+                _appState = AppState.Idle;
+                _startTime = DateTime.MinValue;
+                _passedSeconds = -1;
+                _isIconNegative = false;
+            }
         }
     }
 }
